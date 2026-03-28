@@ -22,15 +22,21 @@
 
 - [核心洞察：为什么 Harness Engineering 是必然](#-核心洞察为什么-harness-engineering-是必然)
 - [概念演进：三个时代](#-概念演进三个时代)
+- [术语表](#-术语表)
 - [奠基之作](#-奠基之作)
 - [官方深度文章](#-官方深度文章)
 - [名人观点与 X 热议](#-名人观点与-x-热议)
+- [五大核心支柱](#-五大核心支柱)
 - [核心原则](#-核心原则)
+- [行业 Harness 实践对比](#-行业-harness-实践对比)
+- [Context 管理：Harness 的核心战场](#-context-管理harness-的核心战场)
 - [高价值开源项目](#-高价值开源项目)
 - [深度文章与分析](#-深度文章与分析)
 - [中文社区资源](#-中文社区资源)
 - [论文与学术研究](#-论文与学术研究)
 - [工具链与实践框架](#-工具链与实践框架)
+- [Harness Engineer 技能图谱](#-harness-engineer-技能图谱)
+- [The Bitter Lesson：保持轻量，准备重构](#-the-bitter-lesson保持轻量准备重构)
 
 ---
 
@@ -79,6 +85,49 @@ Harness Engineering 诞生于一个根本性的范式转移：**代码由 AI 编
 | **类比** | 写信 | 整理档案 | 建造城市 |
 
 > **关键洞察：** 这三个阶段不是替代关系，而是包含关系。Harness Engineering 包含了 Context Engineering，而 Context Engineering 包含了 Prompt Engineering。每一层都是前一层的超集。
+
+---
+
+## 📖 术语表
+
+> 理解这些术语是进入 Harness Engineering 领域的第一步。
+
+| 术语 | 英文 | 定义 |
+|------|------|------|
+| **Harness** | Agent Harness | 包裹 AI 模型的完整基础设施 — 工具、护栏、反馈循环、可观测层 |
+| **上下文退化** | Context Degradation | 模型在长任务中随 context 填满而失去连贯性的现象 |
+| **上下文焦虑** | Context Anxiety | 模型感知到 context 即将耗尽时过早结束工作的倾向 |
+| **压缩** | Context Compaction | 智能摘要 context 以防止溢出的技术 |
+| **护栏** | Guardrails | 限制 Agent 行为的确定性规则层 |
+| **反馈循环** | Feedback Loop | Agent 检查自身输出并自我纠错的循环机制 |
+| **人在回路** | Human-in-the-Loop (HITL) | 在关键决策点由人类提供监督的模式 |
+| **文件交接** | File-based Handoff | Agent 间通过文件（而非对话）传递信息的通信模式 |
+| **初始化 Agent** | Initializer Agent | 在第一个 session 中建立环境和上下文的专门 Agent |
+| **生成-评估模式** | Generator-Evaluator Pattern | 受 GAN 启发，将生成和评估分离的多 Agent 架构模式 |
+| **冲刺合约** | Sprint Contract | Generator 和 Evaluator 之间协商的、可测试的实现合约 |
+| **Ralph 循环** | Ralph Loop | 拦截 Agent 退出尝试，在干净 context 中重新注入 prompt 的模式 |
+| **渐进式发现** | Progressive Disclosure | 选择性加载工具而非一次全部加载的 context 管理策略 |
+| **熵管理** | Entropy Management | 主动对抗系统随时间退化（文档不一致、架构违规）的维护机制 |
+| **Hooks** | Lifecycle Hooks | 在 Agent 生命周期关键点执行自定义脚本的机制 |
+| **沙箱** | Sandboxed Environment | 隔离的执行环境，提供安全性和可扩展性 |
+| **苦涩教训** | The Bitter Lesson | Rich Sutton 的观点 — 利用计算的通用方法最终胜过人工设计；在 Harness 中意味着保持轻量、准备随模型进步而重构 |
+
+**核心公式：**
+
+```
+Agent = Model + Harness
+```
+
+> 一个裸模型不是 Agent。当 Harness 赋予它状态管理、工具执行、反馈循环和可执行约束后，它才变成 Agent。
+
+**计算机架构类比：**
+
+| Harness 概念 | 计算机类比 |
+|-------------|-----------|
+| Model | CPU（算力） |
+| Context Window | RAM（工作内存） |
+| Agent Harness | 操作系统（调度与管理） |
+| Agent | 应用程序 |
 
 ---
 
@@ -243,6 +292,53 @@ Harness Engineering
 
 ---
 
+## 🏗️ 五大核心支柱
+
+> 综合 Anthropic、LangChain、NxCode 等来源，Harness Engineering 可归纳为五大支柱。
+
+### 支柱一：工具编排（Tool Orchestration）
+
+明确定义 Agent 可以访问哪些工具、如何调用、需要什么权限。
+
+```
+工具注册 → 权限边界 → 调用协议 → 结果处理
+```
+
+### 支柱二：护栏与安全约束（Guardrails）
+
+多层级的确定性规则：
+
+| 层级 | 示例 |
+|------|------|
+| **权限边界** | 限制文件/命令访问 |
+| **验证检查** | 使用 linter 和测试套件 |
+| **架构约束** | 强制结构性规则 |
+| **速率限制** | 防止无限循环 |
+
+> 反直觉发现：**更多约束往往产生更高可靠性，而非更低。**
+
+### 支柱三：错误恢复与反馈循环（Feedback Loops）
+
+- 自动重试逻辑（带递增策略）
+- 自我验证循环（Agent 检查自己的工作）
+- 回滚机制（恢复到之前的状态）
+- 循环检测（识别卡住的模式）
+
+> **LangChain 实证：仅通过 Harness 变更（非模型变更），将编码 Agent 的性能从 52.8% 提升到 66.5%。** 这个数据证明了 Harness 的独立价值 — 即使模型不变，更好的 Harness 也能带来显著提升。
+
+### 支柱四：可观测性（Observability）
+
+- 每个 Agent 动作和工具调用的日志
+- Token 使用量和成本追踪
+- 决策点和异常监控
+- 跨 session 的进度追踪
+
+### 支柱五：人机协作检查点（Human-in-the-Loop）
+
+在关键时刻由人类提供监督的战略性决策点 — 从显式审批门到高风险时刻的定期进度审查。不是所有决策都需要人类参与，但**高风险决策必须有人类把关**。
+
+---
+
 ## ⚖️ 核心原则
 
 > 以下八大原则综合自 Mitchell Hashimoto、Anthropic、OpenAI 的实践，以及社区共识。
@@ -278,6 +374,73 @@ Harness Engineering
 ### 8. 纠正成本低，等待成本高
 
 不要设置过重的审查门控。AI 生成的代码修复成本很低（让 AI 重新生成即可），但等待人类逐行审查的时间成本很高。**Fix-forward 优于 Block-and-wait。**
+
+---
+
+## 🔬 行业 Harness 实践对比
+
+> 各家对 Harness 的实现路径不同，但核心理念一致：**约束即可靠性**。
+
+| 产品 | 核心 Harness 机制 | 设计哲学 |
+|------|-------------------|----------|
+| **Claude Code** | 默认只读 → 显式用户审批；自动快照使所有编辑可逆；Hooks 系统在生命周期关键点执行自定义脚本；CLAUDE.md 提供持久项目上下文 | 安全第一，渐进信任 |
+| **OpenAI Codex** | AGENTS.md 作为机器可读指令；可复现的隔离 worktree 环境；CI 强制的机械不变量维护架构边界 | 隔离执行，机械约束 |
+| **Cursor** | `.cursor/rules` 文件包含持久 Markdown 指令；版本控制的、按文件模式匹配的规则 | 规则即代码，精准匹配 |
+| **Vercel** | 删除了 80% 的 Agent 工具，减少步骤和 token 消耗 | **少即是多** |
+
+### Claude Code 本身就是一个 Harness
+
+这是一个重要的元认知：Claude Code 不只是一个编码工具，它是 Claude 模型之上的 **agentic harness 典范实现**：
+
+| Claude Code 组件 | Harness 角色 |
+|-----------------|-------------|
+| Read / Write / Edit / Bash | 工具编排层 |
+| 默认只读 + 用户审批 | 护栏与安全层 |
+| Hooks 系统 | 生命周期管理 |
+| CLAUDE.md | 持久化上下文 |
+| Sub-agent 架构 | 多智能体编排 |
+| 自动快照 | 错误恢复机制 |
+| Context 自动压缩 | 熵管理 |
+
+> 当你使用 Claude Code 时，你已经在使用 Harness Engineering 的产物。**理解这一点，是从"使用者"进化为"设计者"的第一步。**
+
+---
+
+## 🧩 Context 管理：Harness 的核心战场
+
+> 长期运行的 Agent 面临的最大挑战是跨 context window 的连续性。这是 Harness Engineer 需要解决的最核心技术问题。
+
+### 文件系统作为持久化层
+
+| 机制 | 说明 |
+|------|------|
+| **Progress Files** | `claude-progress.txt` 记录工作历史，新 session 启动时读取 |
+| **Feature Lists** | JSON 格式的功能规格带 pass/fail 状态 |
+| **Git Commits** | 描述性提交消息维护代码状态历史 |
+| **File-based Handoff** | Agent 间通过文件通信，避免对话长度爆炸 |
+
+### Context 压缩与管理策略
+
+| 策略 | 说明 | 适用场景 |
+|------|------|----------|
+| **Compaction** | 智能摘要 context 防止溢出 | 长对话 |
+| **Tool Output Offloading** | 将完整输出存储到文件系统以减少噪音 | 大量工具调用 |
+| **Progressive Disclosure** | 选择性加载工具而非一次全部加载 | 工具数量多 |
+| **Ralph Loop** | 拦截退出尝试，在干净 context 中重新注入 prompt | Agent 过早放弃 |
+
+### Session 启动标准流程
+
+每个新 session 的启动序列 — 这是 Harness 最基础的"仪式"：
+
+```
+1. 检查工作目录状态
+2. 审查 git log 和 progress 文件
+3. 选择下一个未完成功能
+4. 运行基础功能测试确认环境正常
+5. 开始编码
+```
+
+> **哲学意义：** 这个流程让每个 session 都是"无状态"的——任何一个 session 崩溃，下一个 session 都能从上一个 commit 无缝恢复。这与微服务的无状态设计原则完全一致。
 
 ---
 
@@ -347,13 +510,20 @@ Harness Engineering
 |------|------|----------|
 | [**Unlocking the Codex Harness**](https://openai.com/index/unlocking-the-codex-harness/) | OpenAI | 用 Codex 构建 Codex 自身的"自举"案例 |
 | [**Conductor: Context-Driven Development**](https://developers.googleblog.com/conductor-introducing-context-driven-development-for-gemini-cli/) | Google | Gemini CLI 的 Harness 实践 |
+| [**The Anatomy of an Agent Harness**](https://blog.langchain.com/the-anatomy-of-an-agent-harness/) | LangChain / Vivek Trivedy | Harness 的解剖学 — 拆解每个组件的职责与交互 |
+| [**The Importance of Agent Harness in 2026**](https://www.philschmid.de/agent-harness-2026) | Philipp Schmid | 从 Hugging Face 视角看 Harness 的重要性 |
 | [**Is Harness Engineering Real?**](https://www.latent.space/p/ainews-is-harness-engineering-real) | Latent.Space | "Big Model vs Big Harness" 辩论 — 模型能力和环境设计哪个更重要？ |
 | [**Skill Issue: Harness Engineering for Coding Agents**](https://www.humanlayer.dev/blog/skill-issue-harness-engineering-for-coding-agents) | HumanLayer | 落地实践指南，从理论到可操作的步骤 |
+| [**Anthropic's Harness Design Philosophy**](https://www.working-ref.com/en/reference/anthropic-harness-design-philosophy-evolution) | Working Ref | Anthropic 从多 Agent 到单 Agent 的设计哲学演进 |
 
-### 思辨与展望（Tier 3）
+### 思辨与行业洞察（Tier 3）
 
 | 文章 | 来源 | 核心贡献 |
 |------|------|----------|
+| [**2025 Was Agents. 2026 Is Agent Harnesses.**](https://aakashgupta.medium.com/2025-was-agents-2026-is-agent-harnesses-heres-why-that-changes-everything-073e9877655e) | Aakash Gupta | 产品视角解读 — 为什么 Harness 改变一切 |
+| [**The Rise of AI Harness Engineering**](https://cobusgreyling.medium.com/the-rise-of-ai-harness-engineering-5f5220de393e) | Cobus Greyling | 从对话式 AI 到 Harness 的演进趋势 |
+| [**What Is Harness Engineering? Complete Guide**](https://www.nxcode.io/resources/news/what-is-harness-engineering-complete-guide-2026) | NxCode | 2026 年最全面的入门指南 |
+| [**Agent Harnesses: From DIY to Product**](https://paddo.dev/blog/agent-harnesses-from-diy-to-product/) | Paddo.dev | 从手工作坊到产品化的演进路径 |
 | [**Harness Engineering 实践指南**](https://www.phodal.com/blog/harness-engineering/) | Phodal（黄峰达） | 中文实践指南，三大落地原则 |
 | [**从上下文工程到驾驭工程**](https://blog.csdn.net/shadowcz007/article/details/159111359) | CSDN | 中文深度分析，概念演进的完整脉络 |
 | [**Harness Engineering 深度解析**](https://zhuanlan.zhihu.com/p/2014014859164026634) | 知乎 | 中文技术社区的深度讨论 |
@@ -452,6 +622,53 @@ Harness Engineering 就是这个新角色的**工程学科**。
 你过去积累的一切——对代码质量的直觉、对架构设计的理解、对失败模式的经验——这些都不会过时。它们只是换了一个应用场景：从"自己写好代码"变成"设计一个环境让 AI 写好代码"。
 
 **你是驯者，不是马。**
+
+---
+
+## 🧭 Harness Engineer 技能图谱
+
+> 如果你想成为一名 Harness Engineer，这是你需要掌握的技能矩阵。
+
+| 技能领域 | 具体要求 | 传统软件工程中的对应 |
+|----------|----------|---------------------|
+| **Prompt & Context Engineering** | 设计系统 prompt、管理 context 窗口 | 需求文档编写 |
+| **API 设计** | 为可靠的工具接口设计 API | 接口设计 |
+| **分布式系统** | 管理多 Agent 协调和状态同步 | 微服务架构 |
+| **可观测性** | 日志、监控、追踪体系 | DevOps / SRE |
+| **错误处理** | 重试、回滚、降级模式 | 容错设计 |
+| **安全与权限** | 沙箱、权限边界、凭证管理 | 安全工程 |
+
+> **范式转变：** 工程团队从「写代码」转向「设计环境、指定意图、构建反馈循环以使 Agent 可靠工作」。你过去积累的所有工程经验不会过时 — 它们只是换了一个应用场景。
+
+---
+
+## 🪞 The Bitter Lesson：保持轻量，准备重构
+
+> Rich Sutton 的 "苦涩教训" — 利用计算的通用方法最终胜过人工设计。在 Harness Engineering 中，这意味着什么？
+
+### 行业案例
+
+- **Manus**：在几个月内多次重构 Harness
+- **LangChain**：每年多次重新架构 Agent
+- **Vercel**：删除 80% 的 Agent 工具，减少步骤和 token
+
+### 三条核心建议
+
+**1. Start Simple（从简单开始）**
+
+> "找到最简单的可能解决方案，只在需要时增加复杂度。" — Anthropic
+
+避免复杂控制流，提供原子工具，实现护栏。
+
+**2. Build to Delete（为删除而构建）**
+
+设计模块化架构，准备好随时替换。**Harness 中的每个组件都编码了对模型能力的假设** — 这些假设会随模型进步而过时。今天精心设计的多步骤工作流，明天可能被模型的原生能力完全替代。
+
+**3. Harness as Dataset（Harness 即数据集）**
+
+竞争优势在于捕获的**轨迹数据**，而非 prompt。Agent 的每次执行、每次失败、每次人类纠正，都是宝贵的训练数据。**失败不是浪费，失败是数据。**
+
+> **哲学意义：** Harness Engineering 的终极悖论 — 你必须全力构建一个你知道终将被淘汰的系统。就像脚手架之于建筑：它在施工期间不可或缺，但建筑完工后必须拆除。优秀的 Harness Engineer 不执着于自己的 Harness，而是执着于**让 Agent 成功的使命**。
 
 ---
 
